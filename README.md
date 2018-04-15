@@ -3,6 +3,7 @@ Create your own PubSub Client &amp; Server Websocket
 
 ## Js Client
 
+```javascript
 const pubSub = new PubSubClient()
 
 // connect
@@ -18,7 +19,7 @@ pubSub.connect(err => {
   
   pubSub.publish('topic-abc', {hi: "there"})
 })
-
+```
 
 
 

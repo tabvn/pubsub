@@ -1,0 +1,23 @@
+{
+  "name": "pubsub-client",
+  "version": "1.0.0",
+  "description": "Pubsub client js Library",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "npm run webpack",
+    "webpack": "webpack -w --mode development",
+    "build": "webpack --mode development"
+  },
+  "author": "toan@tabvn.com",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.4",
+    "babel-preset-env": "^1.6.1",
+    "webpack": "^4.1.1",
+    "webpack-cli": "^2.0.12"
+  },
+  "dependencies": {
+    "fbemitter": "^2.1.1"
+  }
+}

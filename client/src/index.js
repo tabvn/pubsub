@@ -230,11 +230,10 @@ export default class PubSubClient {
 
 window.onload = () => {
 
-  const options = {
+  const pubSub = new PubSubClient('ws://localhost:3001', {
     connect: true,
     reconnect: true,
-  }
-  const pubSub = new PubSubClient('ws://localhost:3001', options)
+  })
 
   const topicName = 'abc'
 
@@ -243,9 +242,11 @@ window.onload = () => {
   })
 
   //publish a message to topic
-
   pubSub.publish(topicName,
     {title: 'Hello subscribers in the topic abc', body: 'How are you ?'})
+
+  // Broadcast send message to subscribers but not me
+  pubSub.broadcast(topicName, {body: 'this is broadcast message'})
 
   // Make global for console access
   window.ps = pubSub

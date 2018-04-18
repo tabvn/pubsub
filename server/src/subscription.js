@@ -25,6 +25,16 @@ export default class Subscription {
    */
   add (topic, clientId, type = 'ws') {
 
+
+    // need to find subscription with same type = 'ws'
+
+    const findSubscriptionWithClientId = this.subscriptions.find(
+      (sub) => sub.clientId === clientId && sub.type === type)
+
+    if (findSubscriptionWithClientId) {
+      // exist and no need add more subscription
+      return findSubscriptionWithClientId.id
+    }
     const id = this.autoId()
     const subscription = {
       id: id,
@@ -33,7 +43,7 @@ export default class Subscription {
       type: type, // email, phone
     }
 
-    console.log("New subscriber via add method:", subscription)
+    console.log('New subscriber via add method:', subscription)
     this.subscriptions = this.subscriptions.set(id, subscription)
     return id
   }

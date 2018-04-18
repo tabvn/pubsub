@@ -4,6 +4,12 @@ export default class PubSubClient {
 
   constructor (url, options = {connect: true, reconnect: true}) {
 
+    // Binding
+    this.reconnect = this.reconnect.bind(this)
+    this.connect = this.connect.bind(this)
+    this.runSubscriptionQueue = this.runSubscriptionQueue.bind(this)
+    this.runQueue = this.runQueue.bind(this)
+
     // status of client connection
     this.emitter = new EventEmitter()
     this._connected = false
@@ -11,9 +17,15 @@ export default class PubSubClient {
     this._queue = []
     this._id = null
 
+    // store listeners
     this._listeners = []
 
+    //All subscriptions
+    this._subscriptions = []
+
     // store settings
+
+    this._isReconnecting = false
 
     this._url = url
     this._options = options
@@ -43,6 +55,12 @@ export default class PubSubClient {
       payload: {
         topic: topic,
       },
+    })
+
+    // let store this into subscriptions for later when use reconnect and we need to run queque to subscribe again
+    this._subscriptions.push({
+      topic: topic,
+      callback: cb ? cb : null,
     })
   }
 
@@ -108,7 +126,7 @@ export default class PubSubClient {
    * @param message
    */
   send (message) {
-    if (this._connected === true) {
+    if (this._connected === true && this._ws.readyState === 1) {
       message = JSON.stringify(message)
       this._ws.send(message)
     } else {
@@ -145,6 +163,43 @@ export default class PubSubClient {
 
       })
     }
+
+  }
+
+  /**
+   * Let auto subscribe again
+   */
+  runSubscriptionQueue () {
+
+    if (this._subscriptions.length) {
+      this._subscriptions.forEach((subscription) => {
+        this.send({
+          action: 'subscribe',
+          payload: {
+            topic: subscription.topic,
+          },
+        })
+
+      })
+    }
+  }
+
+  /**
+   * Implement reconnect
+   */
+  reconnect () {
+
+    // if is reconnecting so do nothing
+    if (this._isReconnecting || this._connected) {
+      return
+    }
+    // Set timeout
+    this._isReconnecting = true
+    this._reconnectTimeout = setTimeout(() => {
+      console.log('Reconnecting....')
+      this.connect()
+    }, 2000)
+
   }
 
   /**
@@ -156,14 +211,23 @@ export default class PubSubClient {
     const ws = new WebSocket(this._url)
     this._ws = ws
 
+    // clear timeout of reconnect
+    if (this._reconnectTimeout) {
+      clearTimeout(this._reconnectTimeout)
+    }
+
     ws.onopen = () => {
 
       // change status of connected
       this._connected = true
+      this._isReconnecting = false
+
       console.log('Connected to the server')
       this.send({action: 'me'})
       // run queue
       this.runQueue()
+
+      this.runSubscriptionQueue()
 
     }
     // listen a message from the server
@@ -199,8 +263,8 @@ export default class PubSubClient {
       console.log('unable connect to the server', err)
 
       this._connected = false
-
-      //@todo add auto re-connect later
+      this._isReconnecting = false
+      this.reconnect()
 
     }
     ws.onclose = () => {
@@ -208,8 +272,9 @@ export default class PubSubClient {
       console.log('Connection is closed')
 
       this._connected = false
+      this._isReconnecting = false
+      this.reconnect()
 
-      //@todo add auto re-connect later
     }
 
   }

@@ -1,6 +1,7 @@
 import { Map } from 'immutable'
 import _ from 'lodash'
 import uuid from 'uuid/v1'
+import Subscription from './subscription'
 
 export default class PubSub {
 
@@ -8,9 +9,13 @@ export default class PubSub {
     this.wss = ctx.wss
 
     this.clients = new Map()
+    this.subscription = new Subscription()
 
     this.load = this.load.bind(this)
-    this.handleReceivedClientMessage = this.handleReceivedClientMessage.bind(this)
+    this.handleReceivedClientMessage = this.handleReceivedClientMessage.bind(
+      this)
+    this.handleAddSubscription = this.handleAddSubscription.bind(this)
+    this.handlePublishMessage = this.handlePublishMessage.bind(this)
 
     this.load()
   }
@@ -27,46 +32,136 @@ export default class PubSub {
         id: id,
         ws: ws,
         userId: null,
+        subscriptions: [],
       }
 
       // add new client to the map
       this.addClient(client)
 
-      this.send(id, {action: 'publish', payload: {topic: 'abc', message: {title: "hey there"}}})
-
       // listen when receive message from client
-      ws.on('message', (message) => this.handleReceivedClientMessage(id, message))
-
-
+      ws.on('message',
+        (message) => this.handleReceivedClientMessage(id, message))
 
       ws.on('close', () => {
-
         console.log('Client is disconnected')
+        // Find user subscriptions and remove
+        const userSubscriptions = this.subscription.getSubscriptions(
+          (sub) => sub.clientId === id)
+        userSubscriptions.forEach((sub) => {
+          this.subscription.remove(sub.id)
+        })
+
       })
 
     })
 
   }
 
-  handleReceivedClientMessage(clientId, message){
+  /**
+   * Handle add subscription
+   * @param topic
+   * @param clientId = subscriber
+   */
+  handleAddSubscription (topic, clientId) {
+
+    const client = this.getClient(clientId)
+    if (client) {
+      const subscriptionId = this.subscription.add(topic, clientId)
+      client.subscriptions.push(subscriptionId)
+      this.addClient(client)
+    }
+
+  }
+
+  /**
+   * Handle publish a message to a topic
+   * @param topic
+   * @param message
+   * @param from
+   * @isBroadcast = false that mean send all, if true, send all not me
+   */
+  handlePublishMessage (topic, message, from, isBroadcast = false) {
+
+    let subscriptions = isBroadcast
+      ? this.subscription.getSubscriptions(
+        (sub) => sub.topic === topic && sub.clientId !== from)
+      : this.subscription.getSubscriptions(
+        (subs) => subs.topic === topic)
+    // now let send to all subscribers in the topic with exactly message from publisher
+    subscriptions.forEach((subscription) => {
+
+      const clientId = subscription.clientId
+      const subscriptionType = subscription.type  // email, phone, ....
+      console.log('CLient id of subscription', clientId, subscription)
+      // we are only handle send via websocket
+      if (subscriptionType === 'ws') {
+        this.send(clientId, {
+          action: 'publish',
+          payload: {
+            topic: topic,
+            message: message,
+          },
+        })
+      }
+
+    })
+  }
+
+  /**
+   * Handle receive client message
+   * @param clientId
+   * @param message
+   */
+  handleReceivedClientMessage (clientId, message) {
 
     const client = this.getClient(clientId)
 
-    if(typeof message === 'string'){
-
+    if (typeof message === 'string') {
 
       message = this.stringToJson(message)
 
-      console.log('Message from client: ', message.action, clientId)
-
       const action = _.get(message, 'action', '')
-      switch (action){
+      switch (action) {
 
         case 'me':
 
           //Client is asking for his info
 
-          this.send(clientId, {action: 'me', payload: {id: clientId, userId: client.userId}})
+          this.send(clientId,
+            {action: 'me', payload: {id: clientId, userId: client.userId}})
+
+          break
+
+        case 'subscribe':
+
+          //@todo handle add this subscriber
+          const topic = _.get(message, 'payload.topic', null)
+          if (topic) {
+            this.handleAddSubscription(topic, clientId)
+
+          }
+
+          break
+
+        case 'publish':
+
+          const publishTopic = _.get(message, 'payload.topic', null)
+          const publishMessage = _.get(message, 'payload.message')
+          if (publishTopic) {
+            const from = clientId
+            this.handlePublishMessage(publishTopic, publishMessage, from)
+          }
+
+          break
+
+        case 'broadcast':
+
+          const broadcastTopicName = _.get(message, 'payload.topic', null)
+          const broadcastMessage = _.get(message, 'payload.message')
+          if (broadcastTopicName) {
+            this.handlePublishMessage(broadcastTopicName, broadcastMessage,
+              clientId, true)
+          }
 
           break
 
@@ -75,14 +170,9 @@ export default class PubSub {
           break
       }
 
-
-
-
-    }else{
+    } else {
       // maybe data message we handle later.
     }
-
-
 
   }
 
@@ -91,16 +181,17 @@ export default class PubSub {
    * @param message
    * @returns {*}
    */
-  stringToJson(message){
+  stringToJson (message) {
 
     try {
       message = JSON.parse(message)
-    }catch (e) {
+    } catch (e) {
       console.log(e)
     }
 
     return message
   }
+
   /**
    * Add new client connection to the map
    * @param client
@@ -110,7 +201,6 @@ export default class PubSub {
     if (!client.id) {
       client.id = this.autoId()
     }
-
     this.clients = this.clients.set(client.id, client)
   }
 

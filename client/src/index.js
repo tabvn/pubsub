@@ -1,10 +1,8 @@
 import { EventEmitter } from 'fbemitter'
 
-const websocketUrl = 'ws://localhost:3001'
-
 export default class PubSubClient {
 
-  constructor () {
+  constructor (url, options = {connect: true, reconnect: true}) {
 
     // status of client connection
     this.emitter = new EventEmitter()
@@ -14,6 +12,16 @@ export default class PubSubClient {
     this._id = null
 
     this._listeners = []
+
+    // store settings
+
+    this._url = url
+    this._options = options
+
+    if (this._options && this._options.connect) {
+      // auto connect
+      this.connect()
+    }
 
   }
 
@@ -28,8 +36,21 @@ export default class PubSubClient {
     // add listener to array
     this._listeners.push(listener)
 
+    // send server with message
+
+    this.send({
+      action: 'subscribe',
+      payload: {
+        topic: topic,
+      },
+    })
   }
 
+  /**
+   * Publish a message to topic, send to everyone and me
+   * @param topic
+   * @param message
+   */
   publish (topic, message) {
 
     this.send({
@@ -40,6 +61,22 @@ export default class PubSubClient {
       },
     })
 
+  }
+
+  /**
+   * Publish a message to the topic and send to everyone, not me
+   * @param topic
+   * @param message
+   */
+  broadcast (topic, message) {
+
+    this.send({
+      action: 'broadcast',
+      payload: {
+        topic: topic,
+        message: message,
+      },
+    })
   }
 
   /**
@@ -71,10 +108,8 @@ export default class PubSubClient {
    * @param message
    */
   send (message) {
-
-    message = JSON.stringify(message)
-
     if (this._connected === true) {
+      message = JSON.stringify(message)
       this._ws.send(message)
     } else {
       // let keep it in queue
@@ -116,20 +151,19 @@ export default class PubSubClient {
    * Begin connect to the server
    * @param cb
    */
-  connect (cb = () => {}) {
+  connect () {
 
-    const ws = new WebSocket(websocketUrl)
+    const ws = new WebSocket(this._url)
     this._ws = ws
 
     ws.onopen = () => {
 
       // change status of connected
       this._connected = true
+      console.log('Connected to the server')
+      this.send({action: 'me'})
       // run queue
       this.runQueue()
-      console.log('Connected to the server')
-      // this send to the server and asking for my connection info: {id: ....}
-      this.send({action: 'me'})
 
     }
     // listen a message from the server
@@ -146,8 +180,6 @@ export default class PubSubClient {
 
           this._id = payload.id
 
-          cb(null)
-
           break
 
         case 'publish':
@@ -161,13 +193,23 @@ export default class PubSubClient {
           break
       }
 
-      console.log('Got server message: ', jsonMessage)
-
     }
     ws.onerror = (err) => {
 
       console.log('unable connect to the server', err)
-      cb(err)
+
+      this._connected = false
+
+      //@todo add auto re-connect later
+
+    }
+    ws.onclose = () => {
+
+      console.log('Connection is closed')
+
+      this._connected = false
+
+      //@todo add auto re-connect later
     }
 
   }
@@ -186,28 +228,26 @@ export default class PubSubClient {
   }
 }
 
-const subscribeCallback = (message) => {
-
-  console.log('Subscribed message', message)
-}
 window.onload = () => {
 
-  console.log('Loaded')
+  const options = {
+    connect: true,
+    reconnect: true,
+  }
+  const pubSub = new PubSubClient('ws://localhost:3001', options)
 
-  const pubSub = new PubSubClient()
+  const topicName = 'abc'
 
-  pubSub.connect((err) => {
-    if (err) {
-      console.log(err)
-
-      return
-    }
-
-    console.log('My Info:', pubSub.id())
-
-    // let subscribe a topic
-
-    pubSub.subscribe('abc', subscribeCallback)
-
+  pubSub.subscribe(topicName, (message) => {
+    console.log(`Got message from topic ${topicName}`, message)
   })
+
+  //publish a message to topic
+
+  pubSub.publish(topicName,
+    {title: 'Hello subscribers in the topic abc', body: 'How are you ?'})
+
+  // Make global for console access
+  window.ps = pubSub
+
 }

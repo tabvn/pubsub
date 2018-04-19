@@ -29,7 +29,7 @@ Create your own PubSub Client &amp; Server Websocket
 
 * May limit publisher and time to send message if look like spammer 
 * Maybe server need wait a time (short time) if detect mutiple publish messages same to one client and send  a batch of messages instead of send a single message.
-* Add Crypto client & Server Key sharing to decrypt between client & server when connected. More security for websocket communication. The message from client to server and server to client is encryped.
+* Add Crypto client & Server Key sharing to decrypt between client & server when connected. More security for websocket communication. The message from client to server and server to client is encrypted.
 
 
 ## Video Tutorials

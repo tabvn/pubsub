@@ -28,4 +28,4 @@ Create your own PubSub Client &amp; Server Websocket
 
 
 ## Video Tutorials
-https://www.youtube.com/watch?v=iNr8VsVh_-Q
+Full Playlis Videos: step by step https://www.youtube.com/playlist?list=PLFaW_8zE4amNkFbpUVS3V0t_HrJSQdASD

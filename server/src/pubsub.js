@@ -15,7 +15,9 @@ export default class PubSub {
     this.handleReceivedClientMessage = this.handleReceivedClientMessage.bind(
       this)
     this.handleAddSubscription = this.handleAddSubscription.bind(this)
+    this.handleUnsubscribe = this.handleUnsubscribe.bind(this)
     this.handlePublishMessage = this.handlePublishMessage.bind(this)
+    this.removeClient = this.removeClient.bind(this)
 
     this.load()
   }
@@ -51,6 +53,10 @@ export default class PubSub {
           this.subscription.remove(sub.id)
         })
 
+        // now let remove client
+
+        this.removeClient(id)
+
       })
 
     })
@@ -68,6 +74,37 @@ export default class PubSub {
     if (client) {
       const subscriptionId = this.subscription.add(topic, clientId)
       client.subscriptions.push(subscriptionId)
+      this.addClient(client)
+    }
+
+  }
+
+  /**
+   * Handle unsubscribe topic
+   * @param topic
+   * @param clientId
+   */
+  handleUnsubscribe (topic, clientId) {
+
+    const client = this.getClient(clientId)
+
+    let clientSubscriptions = _.get(client, 'subscriptions', [])
+
+    const userSubscriptions = this.subscription.getSubscriptions(
+      (s) => s.clientId === clientId && s.type === 'ws')
+
+    userSubscriptions.forEach((sub) => {
+
+      clientSubscriptions = clientSubscriptions.filter((id) => id !== sub.id)
+
+      // now let remove subscriptions
+      this.subscription.remove(sub.id)
+
+    })
+
+    // let update client subscriptions
+    if (client) {
+      client.subscriptions = clientSubscriptions
       this.addClient(client)
     }
 
@@ -143,6 +180,16 @@ export default class PubSub {
 
           break
 
+        case 'unsubscribe':
+
+          const unsubscribeTopic = _.get(message, 'payload.topic')
+          if (unsubscribeTopic) {
+
+            this.handleUnsubscribe(unsubscribeTopic, clientId)
+          }
+
+          break
+
         case 'publish':
 
           const publishTopic = _.get(message, 'payload.topic', null)
@@ -202,6 +249,14 @@ export default class PubSub {
       client.id = this.autoId()
     }
     this.clients = this.clients.set(client.id, client)
+  }
+
+  /**
+   * Remove a client after disconnecting
+   * @param id
+   */
+  removeClient (id) {
+    this.clients = this.clients.remove(id)
   }
 
   /**

@@ -10,6 +10,10 @@ export default class PubSubClient {
     this.runSubscriptionQueue = this.runSubscriptionQueue.bind(this)
     this.runQueue = this.runQueue.bind(this)
 
+    this.unsubscribe = this.unsubscribe.bind(this)
+    this.subscribe = this.subscribe.bind(this)
+    this.publish = this.publish.bind(this)
+
     // status of client connection
     this.emitter = new EventEmitter()
     this._connected = false
@@ -38,6 +42,29 @@ export default class PubSubClient {
   }
 
   /**
+   * Un Subscribe a topic, no longer receive new message of the topic
+   * @param topic
+   */
+  unsubscribe (topic) {
+
+    const subscription = this._subscriptions.find((sub) => sub.topic === topic)
+
+    if (subscription && subscription.listener) {
+      // first need to remove local listener
+      subscription.listener.remove()
+    }
+
+    // need to tell to the server side that i dont want to receive message from this topic
+    this.send({
+      action: 'unsubscribe',
+      payload: {
+        topic: topic,
+      },
+    })
+
+  }
+
+  /**
    * Subscribe client to a topic
    * @param topic
    * @param cb
@@ -61,6 +88,7 @@ export default class PubSubClient {
     this._subscriptions.push({
       topic: topic,
       callback: cb ? cb : null,
+      listener: listener,
     })
   }
 

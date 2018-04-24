@@ -25,7 +25,7 @@ Create your own PubSub Client &amp; Server Websocket
 
 ```
 
-## Ideas
+## @Todo
 
 * May limit publisher and time to send message if look like spammer 
 * Maybe server need wait a time (short time) if detect mutiple publish messages same to one client and send  a batch of messages instead of send a single message.

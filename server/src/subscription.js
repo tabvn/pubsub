@@ -29,7 +29,7 @@ export default class Subscription {
     // need to find subscription with same type = 'ws'
 
     const findSubscriptionWithClientId = this.subscriptions.find(
-      (sub) => sub.clientId === clientId && sub.type === type)
+      (sub) => sub.clientId === clientId && sub.type === type && sub.topic === topic)
 
     if (findSubscriptionWithClientId) {
       // exist and no need add more subscription
